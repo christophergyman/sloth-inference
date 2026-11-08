@@ -1,0 +1,11 @@
+# 05/11/2026
+- [] finish the wiki quickly
+- [] get some simple inference code up and running
+
+# 04/11/2026
+Todo:
+- [20%] go through the wiki 
+
+[q?]
+- differnt types of tokenizers
+- for different spoken languages do you have different toeknizers and positional encoding values ?

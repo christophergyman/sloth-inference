@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>InferenceWiki - How AI Inference Works</title>
+<style>
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    line-height: 1.6;
+    font-size: 14px;
+    color: #202122;
+    background: #f8f9fa;
+    margin: 0;
+    padding: 0;
+  }
+  #topbar {
+    background: #fff;
+    border-bottom: 1px solid #a2a9b1;
+    padding: 6px 16px;
+    font-size: 13px;
+    color: #54595d;
+  }
+  #wrap {
+    margin: 0;
+    background: #fff;
+    padding: 20px 32px 60px 32px;
+    font-size: 14px;
+  }
+  h1 { font-family: "Linux Libertine", Georgia, Times, serif; font-weight: normal; font-size: 28.8px; border-bottom: 1px solid #a2a9b1; padding-bottom: 6px; margin-top: 0; color: #000; }
+  h2 { font-family: "Linux Libertine", Georgia, Times, serif; font-weight: normal; font-size: 21px; border-bottom: 1px solid #a2a9b1; padding-bottom: 4px; margin-top: 40px; color: #000; overflow: hidden; }
+  h2 .mw-edit { font-family: sans-serif; font-size: 12px; float: right; margin-top: 8px; }
+  h3 { font-size: 15px; margin-top: 24px; color: #000; }
+  p, li { font-size: 14px; }
+  a { color: #3366cc; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  a:visited { color: #795cb2; }
+  .hatnote { font-size: 13px; color: #54595d; font-style: italic; padding-left: 24px; margin: 6px 0 12px 0; }
+  .infobox {
+    float: right;
+    width: 270px;
+    border: 1px solid #a2a9b1;
+    background: #f8f9fa;
+    font-size: 12.5px;
+    margin: 0 0 16px 16px;
+    padding: 0;
+    border-spacing: 3px;
+  }
+  .infobox h4 {
+    background: #eaecf0;
+    margin: 0;
+    padding: 7px;
+    text-align: center;
+    font-size: 13px;
+    font-weight: bold;
+  }
+  .infobox dl { padding: 6px 12px 10px 12px; margin: 0; }
+  .infobox dt { font-weight: bold; margin-top: 7px; color: #202122; }
+  .infobox dd { margin: 0; }
+  #toc {
+    border: 1px solid #a2a9b1;
+    background: #f8f9fa;
+    padding: 7px 14px;
+    font-size: 13px;
+    display: inline-block;
+    min-width: 280px;
+  }
+  #toc ul { margin: 6px 0; padding-left: 22px; }
+  #toc b { font-size: 13px; }
+  .words {
+    border: 1px solid #a2a9b1;
+    background: #f8f9fa;
+    border-left: 4px solid #36c;
+    padding: 8px 12px;
+    font-size: 13px;
+    margin: 14px 0;
+  }
+  .words b { color: #202122; }
+  table.wikitable {
+    border-collapse: collapse;
+    margin: 12px 0;
+    font-size: 13.5px;
+    background: #fff;
+    border: 1px solid #a2a9b1;
+  }
+  table.wikitable th, table.wikitable td {
+    border: 1px solid #a2a9b1;
+    padding: 5px 10px;
+    text-align: left;
+  }
+  table.wikitable th { background: #eaecf0; }
+  pre.mermaidbox, div.mermaid {
+    background: #f8f9fa;
+    border: 1px solid #a2a9b1;
+    padding: 12px;
+    font-size: 13.5px;
+    overflow-x: auto;
+  }
+  div.mermaid { text-align: left; }
+  .note {
+    background: #f8f9fa;
+    border: 1px solid #a2a9b1;
+    border-left: 4px solid #fc3;
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+  .glossary dt { font-weight: bold; margin-top: 10px; }
+  .glossary dd { margin-left: 18px; margin-bottom: 2px; }
+  .footer { margin-top: 16px; border-top: 1px solid #c8ccd1; padding-top: 12px; font-size: 12px; color: #54595d; }
+  :target { background: #ff0; }
+  @media (max-width: 700px) {
+    #wrap { padding: 16px; border: none; }
+    .infobox { float: none; width: 100%; margin: 0 0 16px 0; }
+  }
+</style>
+</head>
+<body>
+<div id="topbar">InferenceWiki, homemade offline wiki for sloth-inference</div>
+<div id="wrap">
+
+<h1>How AI inference works</h1>
+<p class="hatnote">From InferenceWiki, the homemade encyclopedia for one Rust learner. For training, see <a href="https://en.wikipedia.org/wiki/Training,_validation,_and_test_data_sets">Training</a>. For the model type, see <a href="https://en.wikipedia.org/wiki/Transformer_(deep_learning)">Transformer</a>.</p>
+
+<div class="infobox">
+<h4>Inference (machine learning)</h4>
+<dl>
+<dt>Field</dt><dd><a href="https://en.wikipedia.org/wiki/Machine_learning">Machine learning</a></dd>
+<dt>Opposite of</dt><dd><a href="https://en.wikipedia.org/wiki/Training,_validation,_and_test_data_sets">Training</a> (learning the weights)</dd>
+<dt>Input</dt><dd>Prompt text</dd>
+<dt>Output</dt><dd>New text, one token at a time</dd>
+<dt>Two phases</dt><dd>Prefill, then Decode</dd>
+<dt>Main memory</dt><dd><a href="#g-kvcache">KV cache</a></dd>
+<dt>Main metrics</dt><dd>TTFT, TPOT, throughput</dd>
+<dt>Built with</dt><dd>Rust, CUDA kernels, engines like <a href="https://docs.vllm.ai/">vLLM</a></dd>
+</dl>
+</div>
+
+<p><b>Inference</b> - using an already trained AI model to answer new questions. Training is like studying for years. Inference is like doing the actual job after school.</p>
+
+<p>This page starts very simple and gets more complex. Read top to bottom. Every new word is defined in <b>bold</b> on first use. Click any blue link to jump to the <a href="#glossary">Glossary</a> or to real Wikipedia and project docs.</p>
+
+<div id="toc">
+<b>Contents</b>
+<ul>
+<li><a href="#how-to-read">0. How to read this page</a></li>
+<li><a href="#what-is-inference">1. What is inference</a></li>
+<li><a href="#how-ai-works">2. How modern AI works, tiny version</a></li>
+<li><a href="#core-loop">3. The core loop</a></li>
+<li><a href="#prefill-decode">4. Prefill vs decode</a></li>
+<li><a href="#kv-cache">5. KV cache, the bridge</a></li>
+<li><a href="#metrics">6. How we measure it</a></li>
+<li><a href="#batching">7. Doing more at once: batching</a></li>
+<li><a href="#memory">8. Saving memory</a></li>
+<li><a href="#speed">9. Going faster</a></li>
+<li><a href="#stack">10. Real system parts</a></li>
+<li><a href="#rust-map">11. Your Rust map</a></li>
+<li><a href="#glossary">12. Glossary and references</a></li>
+</ul>
+</div>
+
+<h2 id="how-to-read">0. How to read this page</h2>
+<div class="words"><b>Words you need:</b> <b><a href="#g-term">term</a></b> - a word with a fixed meaning. <b><a href="#g-glossary">glossary</a></b> - a list of terms in ABC order. <b><a href="#g-anchor">anchor link</a></b> - a link that jumps inside this same page.</div>
+<p>Pattern used in every section:</p>
+<ul>
+<li><b>Words you need</b> box at the top.</li>
+<li>Simple explanation with first-use definitions in <b>bold</b>.</li>
+<li>One diagram or table.</li>
+<li>One line on why it matters for your Rust engine.</li>
+</ul>
+<p class="note">Visual tip: diagrams on this page use Mermaid. If you are offline they still have text captions, so you lose nothing.</p>
+
+<h2 id="what-is-inference">1. What is inference</h2>
+<div class="words"><b>Words you need:</b> <b><a href="#g-inference">inference</a></b> - using a trained model. <b><a href="#g-training">training</a></b> - teaching the model by changing numbers. <b><a href="#g-model">model</a></b> - the saved program that predicts. <b><a href="#g-weights">weights</a></b> - the millions of learned numbers inside a model.</div>
+<p>A <b>model</b> is a file full of <b>weights</b>, which are learned numbers. <b>Training</b> means finding good weights by showing many examples. <b>Inference</b> means freezing those weights and asking for answers.</p>
+<p>Think of a bakery. Training is writing the recipe book. Inference is baking one cake when a customer orders.</p>
+<table class="wikitable">
+<tr><th></th><th>Training</th><th>Inference</th></tr>
+<tr><td>When</td><td>Once per model version</td><td>Every user request, millions of times per day</td></tr>
+<tr><td>Weights</td><td>Change every step</td><td>Frozen, read only [3][4]</td></tr>
+<tr><td>Goal</td><td>Learn well</td><td>Answer fast and cheap</td></tr>
+<tr><td>Hardware stress</td><td>Big math, long run</td><td>Fast memory moves, many small runs</td></tr>
+</table>
+<p>Example: you train once for weeks. Then you serve 10 million chats. Inference cost quickly passes training cost. That is why companies obsess over TTFT, cache hit rate, and tokens per second [17].</p>
+<p>Walkthrough of one inference request: text in, tokens in, one forward pass per step, probabilities out, pick a token, repeat. No learning happens. If output is bad you do not fix weights, you fix prompt, sampling, or model.</p>
+<p>Related Wikipedia: <a href="https://en.wikipedia.org/wiki/Machine_learning">Machine learning</a>, <a href="https://en.wikipedia.org/wiki/Inference">Inference</a>, <a href="https://en.wikipedia.org/wiki/Training,_validation,_and_test_data_sets">Training</a>.</p>
+<p><i>Rust link:</i> your engine will load weights once, then never change them during inference. That makes the code simpler.</p>
+
+<h2 id="how-ai-works">2. How modern AI works, tiny version</h2>
+<div class="words"><b>Words you need:</b> <b><a href="#g-token">token</a></b> - a small piece of text the model reads. <b><a href="#g-tokenization">tokenization</a></b> - splitting text into tokens. <b><a href="#g-embedding">embedding</a></b> - turning a token into a list of numbers. <b><a href="#g-transformer">transformer</a></b> - the type of model most chat AIs use. <b><a href="#g-autoregression">autoregression</a></b> - building output one piece at a time, each step looking at past steps.</div>
+<p>Modern chat models are almost all decoder-only <b>transformers</b> [1][2]. That is a <b>transformer</b> that writes left to right.</p>
+<h3>Worked token example</h3>
+<p>Take "Hi there". A tokenizer might split this into ["Hi", " there"] which is 2 <b>tokens</b>. Each token gets an ID like [4438, 612]. Each ID looks up an <b>embedding</b> vector, for example 4096 numbers for a 7B class model. The stack of transformer layers then updates each vector by letting it attend to earlier vectors [1].</p>
+<h3>Sampling in plain words</h3>
+<p>After the last layer, the model outputs one score per vocab item, called <b>logits</b>. Logits turn into probabilities. <b>Sampling</b> is the rule that picks the next token from those probabilities:</p>
+<ol>
+<li><b>Tokenization</b> splits "Hello world" into <b>tokens</b> like ["Hello", " world"]. Tokens are often words or word parts. See <a href="https://en.wikipedia.org/wiki/Tokenization_(natural_language_processing)">Tokenization</a>.</li>
+<li>Each token becomes an <b>embedding</b>, a list of numbers like [0.2, -0.5, 0.9]. This gives the model math to work with.</li>
+<li><b>Attention</b> - the part where each token looks at other tokens to get meaning. "Bank" looks at "river" to know it is not a money bank. See <a href="https://en.wikipedia.org/wiki/Attention_(machine_learning)">Attention</a> and the <a href="https://arxiv.org/abs/1706.03762">Attention Is All You Need paper</a> [1].</li>
+<li><b>Autoregression</b> means predict one token, add it to the input, repeat. Like typing where each new word can see all past words.</li>
+<li><b>Sampling</b> - picking the next token from probabilities. <b>Greedy</b> means pick the best one. <b>Temperature</b> rescales probabilities before picking: below 1.0 sharpens toward the top choice, above 1.0 flattens toward random. <b>Top-k</b> keeps only the k best tokens then samples. <b>Top-p</b>, also called nucleus sampling, keeps the smallest set whose probabilities add up to p, so the pool grows when the model is unsure and shrinks when it is sure [19]. See <a href="https://en.wikipedia.org/wiki/Language_model">Language model</a>.</li>
+
+</ol>
+<div class="mermaid">
+flowchart LR
+  A[Text: How are you?] --> B[Tokenization: How, are, you, ?]
+  B --> C[Embeddings: lists of numbers]
+  C --> D[Transformer layers + Attention]
+  D --> E[Sampling: pick next token]
+  E --> F[Repeat until stop]
+</div>
+<p><i>Rust link:</i> you will build these 5 boxes as 5 small functions first. No GPU needed to learn them.</p>
+
+<h2 id="core-loop">3. The core loop</h2>
+<div class="words"><b>Words you need:</b> <b><a href="#g-prompt">prompt</a></b> - input text from the user. <b><a href="#g-prefill">prefill</a></b> - first pass that reads the whole prompt. <b><a href="#g-decode">decode</a></b> - loop that writes one token per step. <b><a href="#g-detokenization">detokenization</a></b> - turning tokens back into text.</div>
+<p>Every request follows the same loop:</p>
+<ol>
+<li>Turn prompt into tokens.</li>
+<li><b>Prefill</b> once: read all prompt tokens in parallel, save notes.</li>
+<li><b>Decode</b> many times: write one new token, add it to notes, repeat until stop word or max length.</li>
+<li><b>Detokenization</b>: turn all output tokens back into text for the user.</li>
+</ol>
+<div class="mermaid">
+flowchart TD
+  P[Prompt tokens] --> PR[Prefill: 1 parallel pass]
+  PR --> K[(KV cache: notes)]
+  K --> D1[Decode step 1: write token A]
+  D1 --> K
+  K --> D2[Decode step 2: write token B]
+  D2 --> K
+  K --> D3[Decode ... until stop]
+  D3 --> T[Detokenize to text]
+</div>
+<p>If answer is 200 tokens long, that is 1 prefill plus 200 decode steps [3][4].</p>
+<h3>Worked loop with stop rules</h3>
+<p>Prompt "2+2=" becomes tokens [1, 19, 11, 19, 28]. Prefill reads all 5 at once. Decode step 1 might emit " 4". Decode step 2 might emit end of string. That stop token ends the loop. You also stop at <b>max tokens</b>, a safety cap like 256, so a bad loop cannot run forever.</p>
+<p>Pseudo loop you will write in Rust:</p>
+<pre>tokens = tokenize(prompt)
+cache = prefill(model, tokens)
+for _ in 0..max_tokens {
+  next = decode_one(model, tokens, cache)
+  if next == EOS { break }
+  tokens.push(next)
+}
+text = detokenize(tokens)</pre>
+<p>More: <a href="https://handbook.modular.com/llm-inference-basics/how-does-llm-inference-work">Modular LLM Inference Handbook</a>, <a href="https://www.ibm.com/think/topics/llm-inference">IBM What is LLM Inference</a>.</p>
+<p><i>Rust link:</i> your main loop will be a <code>while</code> loop around decode. Get this loop right before any speed tricks.</p>
+
+<h2 id="prefill-decode">4. Prefill vs decode</h2>
+<div class="words"><b>Words you need:</b> <b><a href="#g-compute-bound">compute bound</a></b> - slow because math is heavy. <b><a href="#g-memory-bound">memory bound</a></b> - slow because moving data is heavy. TTFT and TPOT are defined in section 6.</div>
+<p><b>Prefill</b> reads the whole prompt at once. It does big matrix math in parallel. It is <b>compute bound</b> [5].</p>
+<p><b>Decode</b> writes one token at a time. Each step must load all weights plus all past notes. It is <b>memory bound</b>, limited by how fast data moves, not by math [3][5].</p>
+<table class="wikitable">
+<tr><th>Aspect</th><th>Prefill</th><th>Decode</th></tr>
+<tr><td>When</td><td>Once per request</td><td>Once per output token</td></tr>
+<tr><td>Input size</td><td>Many tokens at once</td><td>One token</td></tr>
+<tr><td>Bottleneck</td><td>Compute bound</td><td>Memory bound</td></tr>
+<tr><td>Sets</td><td>Time to first token</td><td>Streaming speed</td></tr>
+<tr><td>Can it run with other requests?</td><td>Yes, but heavy</td><td>Yes, good for batching</td></tr>
+</table>
+<p>Because they stress hardware differently, some big systems run prefill and decode on different GPUs. That is called <b><a href="#g-disaggregation">disaggregation</a></b> [20][21].</p>
+<h3>Why split them</h3>
+<p>Colocated serving batches prefills and decodes together, which causes interference: a long prefill stalls streaming decodes. DistServe assigns prefills and decodes to different GPUs, removes that interference, and tunes each side separately for TTFT and TPOT [20]. The cost is moving KV cache over the network between the two sides, so placement follows cluster bandwidth [20][21]. Sarathi-Serve is the alternative when you stay colocated: split long prefills into chunks so decodes keep flowing [22].</p>
+<p>More: <a href="https://www.ai21.com/glossary/foundational-llm/what-are-prefill-and-decode">AI21 Prefill and Decode</a>, <a href="https://sladyn.com/notes/inference-prefill-and-decode">Sladyn Inference Notes</a>.</p>
+<p><i>Rust link:</i> test prefill and decode as two separate functions, with two separate timers.</p>
+
+<h2 id="kv-cache">5. KV cache, the bridge</h2>
+<div class="words"><b>Words you need:</b> <b><a href="#g-kvcache">KV cache</a></b> - saved keys and values so we do not recompute them. <b><a href="#g-key">key and value</a></b> - two number lists per token used by attention. <b><a href="#g-query">query</a></b> - number list for the current token that looks up keys.</div>
+<p>During <b>attention</b>, each token makes a <b>query</b>, a <b>key</b>, and a <b>value</b>. Query asks "what do I need". Key labels "what I offer". Value holds the actual meaning.</p>
+<p>Without cache, step 200 would recompute keys and values for all 199 past tokens. That is very wasteful.</p>
+<p>The <b>KV cache</b> saves keys and values after prefill. Each decode step then only computes one new set and reuses the rest.</p>
+<h3>Size formula with worked numbers</h3>
+<p>Per token cache in bytes is:</p>
+<pre>2 x layers x KV_heads x head_dim x bytes_per_value [23][24]</pre>
+<p>The 2 counts keys plus values. Use KV heads, not query heads. Use 2 bytes for FP16 or BF16, 1 byte for FP8 [23][25]. Total is per token times tokens times concurrent requests [24].</p>
+<p>Worked example from published configs: a 32 layer GQA model with 8 KV heads, head dim 128, FP16 gives 2 x 32 x 8 x 128 x 2 = 131,072 bytes, which is 128 KiB per token [24]. At 16,384 tokens and 8 concurrent requests that is 16 GiB. The same shape with 32 KV heads would be 512 KiB per token and 64 GiB total, which shows why head count matters [24]. Real tables show the same linear growth: for example Qwen3-8B is about 150 KB per token in FP16, so 1,000 tokens is about 0.15 GB and 100,000 tokens is about 14.75 GB for one request [26].</p>
+<h3>Fewer KV heads: MQA and GQA</h3>
+<p>Standard attention keeps one KV head per query head. <b>Multi-query attention</b> keeps many query heads but only one shared KV head, which cuts cache by roughly the head count [27][28]. <b>Grouped-query attention</b> keeps many query heads and shares a smaller set of KV heads across groups [29]. For example 32 query heads share 8 KV heads, so each KV head serves 4 queries and cache is about one quarter of full attention [30]. Queries stay distinct, so each head can still form its own weights [30]. This is why modern configs list both counts, like 32 query heads and 8 KV heads.</p>
+<div class="mermaid">
+sequenceDiagram
+  participant P as Prompt tokens
+  participant M as Model
+  participant C as KV cache
+  P->>M: prefill all tokens
+  M->>C: write keys + values
+  loop each decode step
+    M->>C: read all past keys + values
+    M->>M: compute 1 new token
+    M->>C: append 1 new key + value
+  end
+</div>
+<p>Problem: the cache grows with length and users. For long chats it can be larger than the model itself [6]. That is why sections 8 and 9 exist.</p>
+<p>More: <a href="https://www.mindstudio.ai/blog/how-llm-inference-works-prefill-decode">MindStudio KV Cache Breakdown</a>, <a href="https://outcomeschool.com/blog/prefill-vs-decode-llm-inference-optimization">Outcome School Prefill vs Decode</a>.</p>
+<p><i>Rust link:</i> your KV cache can start as a simple <code>Vec</code> per layer. Paging comes much later.</p>
+
+<h2 id="metrics">6. How we measure it</h2>
+<div class="words"><b>Words you need:</b> <b><a href="#g-ttft">TTFT</a></b> - time to first token. <b><a href="#g-tpot">TPOT</a></b> - time per output token. <b><a href="#g-throughput">throughput</a></b> - tokens or requests per second. <b><a href="#g-latency">latency</a></b> - total wait time.</div>
+<table class="wikitable">
+<tr><th>Metric</th><th>Plain meaning</th><th>Set by</th></tr>
+<tr><td><b>TTFT</b></td><td>How fast answer starts</td><td>Prefill speed plus queue wait</td></tr>
+<tr><td><b>TPOT</b></td><td>How fast it streams after start</td><td>Decode speed</td></tr>
+<tr><td><b>Latency</b></td><td>Total time for one request</td><td>TTFT plus TPOT times token count</td></tr>
+<tr><td><b>Throughput</b></td><td>How many users you serve</td><td>Batching plus memory tricks</td></tr>
+</table>
+<p>Chat users feel TTFT and TPOT. Owners feel throughput and cost per token.</p>
+<h3>Worked latency math</h3>
+<p>Latency is about TTFT plus TPOT times output tokens [21]. Example: TTFT 0.4 seconds plus 100 tokens at 0.03 seconds each is 0.4 + 3.0 = 3.4 seconds. This is why long answers are ruled by decode speed even when prefill feels fast.</p>
+<p>What good looks like depends on app, but the pattern from serving work is stable: chat wants low TTFT under about 1 second and smooth TPOT, code and agents tolerate higher TTFT but still need steady streaming, and offline batch jobs care about throughput, not TTFT [20][21]. Measure all three from day one: TTFT, TPOT, tokens per second.</p>
+<p><i>Rust link:</i> print these three numbers from day one: TTFT, TPOT, tokens per second.</p>
+
+<h2 id="batching">7. Doing more at once: batching</h2>
+<div class="words"><b>Words you need:</b> <b><a href="#g-batch">batch</a></b> - group of requests run together. <b><a href="#g-static-batching">static batching</a></b> - wait for whole group to finish. <b><a href="#g-continuous-batching">continuous batching</a></b> - add and remove requests each step. <b><a href="#g-chunked-prefill">chunked prefill</a></b> - split long prompt into small pieces.</div>
+<p>GPUs are very parallel. Running one request at a time wastes them.</p>
+<p><b>Static batching</b> waits for the slowest request. <b>Continuous batching</b>, also called iteration-level scheduling, lets a new request join at each decode step and lets finished ones leave early [10][16]. This keeps the GPU full.</p>
+<p><b>Chunked prefill</b> cuts a long prompt into chunks so one big prefill does not block everyone else's decode [22][31]. vLLM batches pending decodes first, then fills leftover token budget with prefill chunks. Smaller <b>max_num_batched_tokens</b> helps streaming, larger helps TTFT [31].</p>
+<h3>Orca in one paragraph</h3>
+<p>Static batching waits for the slowest request, so short jobs queue behind long ones. Orca proposed <b>iteration-level scheduling</b>: run one model iteration, return finished requests at once, admit new ones at once [32][33]. It adds <b>selective batching</b> because attention needs per request handling when lengths differ [32]. Reported result on GPT-3 175B was about 36.9x throughput at the same latency versus FasterTransformer in that setup [32]. Modern engines copy this idea under the name continuous batching.</p>
+<div class="mermaid">
+gantt
+  title Static vs Continuous Batching
+  dateFormat X
+  axisFormat %s
+  section Static
+  Request A       :0, 5
+  Request B       :0, 5
+  Request C waits :5, 8
+  section Continuous
+  Request A       :0, 3
+  Request B       :0, 5
+  Request C joins early :3, 6
+</div>
+<p>More: <a href="https://iop.systems/blog/llm-inference/batching">Batching Scheduling and Paging</a>, <a href="https://haoailab.com/cse291-s26/assets/scribe_notes/may19_scribe.pdf">UCSD Serving Notes PDF</a>.</p>
+<p><i>Rust link:</i> start with batch size 1. Add continuous batching only after single request streaming works.</p>
+
+<h2 id="memory">8. Saving memory</h2>
+<div class="words"><b>Words you need:</b> <b><a href="#g-pagedattention">PagedAttention</a></b> - store KV cache in small pages like OS memory. <b><a href="#g-prefix-caching">prefix caching</a></b> - reuse KV cache for shared prompt start. <b><a href="#g-eviction">eviction</a></b> - delete less useful cache to save space.</div>
+<h3>8.1 PagedAttention</h3>
+<p><b>PagedAttention</b> splits KV cache into fixed blocks or pages, with a table that maps where each request lives [9]. This avoids holes and waste. It was introduced by <a href="https://dl.acm.org/doi/10.1145/3600006.3613165">vLLM / PagedAttention paper</a>.</p>
+<h3>8.2 Prefix caching</h3>
+<p>Many prompts share the same start, like system instructions or the same document. <b>Prefix caching</b> computes that shared start once and reuses it [6][17]. vLLM does this with hash based block reuse: it hashes token blocks plus parent hashes, so an exact shared prefix hits cache and skips recompute [34]. Changing one early word breaks the match, so keep shared text byte identical and put variable user text at the end when you can.</p>
+<h3>8.3 Other savers</h3>
+<ul>
+<li><b>KV quantization</b> - store cache in fewer bits.</li>
+<li><b>Eviction</b> - drop old or low-score tokens, like StreamingLLM or H2O.</li>
+<li><b>Offload</b> - move cold cache to CPU RAM.</li>
+</ul>
+<p>More: <a href="https://corporate.deeplearning.ai/courses/fast-and-efficient-llm-inference-with-vllm/lesson/cnop96/serving-llms-efficiently-with-vllm---part-i">DeepLearning.AI vLLM lesson</a>, <a href="https://cloud.google.com/blog/topics/developers-practitioners/five-techniques-to-reach-the-efficient-frontier-of-llm-inference">Google Cloud Efficient Frontier</a>.</p>
+<p><i>Rust link:</i> you do not need paging yet. Just log cache size in MB per request to feel the problem.</p>
+
+<h2 id="speed">9. Going faster</h2>
+<div class="words"><b>Words you need:</b> <b><a href="#g-quantization">quantization</a></b> - use smaller numbers to move less data. <b><a href="#g-speculative">speculative decoding</a></b> - guess several tokens fast then check with big model. <b><a href="#g-flash">FlashAttention</a></b> - faster attention that avoids slow memory trips.</div>
+<ul>
+<li><b>Quantization</b>: FP16 to INT8 halves memory. INT4 quarters it. Since decode is memory bound, smaller weights stream faster. Methods like <a href="https://arxiv.org/abs/2306.00978">AWQ</a> [13] and <a href="https://arxiv.org/abs/2210.17323">GPTQ</a> [14] keep quality high. GPTQ is post training: each row is quantized to minimize error, weights stay INT4 on disk and are restored to FP16 on the fly in a fused kernel, which can save about 4x memory [35]. AWQ protects salient channels found from activation stats, stores packed 4-bit weights plus FP16 scales per group, and dequantizes on the fly for the matmul [36]. See <a href="https://en.wikipedia.org/wiki/Quantization_(signal_processing)">Quantization</a>.</li>
+<li><b>FlashAttention / FlashInfer</b>: fused kernels that keep attention math in fast on-chip memory. See <a href="https://arxiv.org/abs/2501.01005">FlashInfer paper</a> [11][12]. FlashAttention is exact attention with IO aware tiling, not an approximation [11]. FlashInfer adds block sparse KV formats plus load balanced scheduling for serving [12].</li>
+<li><b>Speculative decoding</b>: small draft model guesses 3 to 5 tokens, big model checks them at once [16]. Lossless variants keep the target distribution identical while cutting latency [37]. Studies report the sweet spot is often 3 to 5 draft tokens with a draft model 10 to 20 times smaller, because bigger drafts cost too much to run and longer drafts get rejected too often [38]. vLLM exposes this as draft model, n-gram, EAGLE, and related methods with a settable speculative token count [39]. If correct, you saved steps. See <a href="https://www.baseten.co/blog/how-to-optimize-llm-inference-speed-and-reduce-costs-in-production">Baseten Optimization Guide</a>.</li>
+<li><b>Disaggregation</b>: run prefill GPUs and decode GPUs separately so neither waits.</li>
+</ul>
+<p><i>Rust link:</i> skip these at first. Your first speed win is just using <code>f32</code> correctly and avoiding reallocation in the decode loop.</p>
+
+<h2 id="stack">10. Real system parts</h2>
+<div class="words"><b>Words you need:</b> <b><a href="#g-engine">inference engine</a></b> - program that runs batches and cache. <b><a href="#g-kernel">kernel</a></b> - tiny fast GPU function. <b><a href="#g-orchestration">orchestration</a></b> - routing many requests across many GPUs. <b><a href="#g-hbm">HBM</a></b> - fast GPU memory where weights and cache live.</div>
+<div class="mermaid">
+flowchart TD
+  U[User requests] --> R[Router + Gateway]
+  R --> E1[Engine: vLLM / SGLang / TensorRT-LLM]
+  R --> E2[Engine replica 2]
+  E1 --> S[Scheduler: who runs now?]
+  S --> M[Memory manager: PagedAttention]
+  M --> K[GPU kernels: FlashAttention, matmul]
+  K --> H[(HBM: weights + KV cache)]
+</div>
+<table class="wikitable">
+<tr><th>Layer</th><th>Example</th><th>Use when</th></tr>
+<tr><td>Reference</td><td><a href="https://huggingface.co/docs/transformers/">Hugging Face Transformers</a> [18]</td><td>Learning and tests</td></tr>
+<tr><td>Engine</td><td><a href="https://docs.vllm.ai/">vLLM</a>, <a href="https://sglang.io/">SGLang</a></td><td>Serve many users, easy to use [7][8]</td></tr>
+<tr><td>Engine max perf</td><td><a href="https://nvidia.github.io/TensorRT-LLM/">TensorRT-LLM</a> [15]</td><td>NVIDIA only, hardest, fastest</td></tr>
+<tr><td>Orchestration</td><td><a href="https://github.com/ai-dynamo/dynamo">NVIDIA Dynamo</a>, K8s Gateway</td><td>Many replicas, split prefill and decode</td></tr>
+</table>
+<p>More: <a href="https://vllm.ai/blog/2025-09-05-anatomy-of-vllm">Anatomy of vLLM</a> [8], <a href="https://docs.vllm.ai/en/latest/design/arch_overview/">vLLM Arch Overview</a> [7], <a href="https://inferenceengineering.tech/chapters/software">Inference Engineering Ch4</a>.</p>
+<p><i>Rust link:</i> sloth-inference is at engine level. You need tokenizer plus scheduler plus cache manager plus sampler, even if tiny.</p>
+<h3>Request path in order</h3>
+<p>1. Router receives HTTP, picks a replica with free KV slots [17]. 2. Engine tokenizes and looks up prefix cache [34]. 3. Scheduler admits the request if KV budget allows, else queues or preempts [31]. 4. Model runner executes prefill or decode with fused kernels [7][15]. 5. Sampler picks the next token with your temperature and top-p [19]. 6. Stream the token and repeat. This is the same loop as vLLM Engine Core plus API server split, and the same split as TensorRT-LLM Scheduler plus KVCacheManager plus ModelEngine [7][15].</p>
+
+<h2 id="rust-map">11. Your Rust map</h2>
+<div class="words"><b>Words you need:</b> <b><a href="#g-crate">crate</a></b> - a Rust package. <b>module</b> - a file or folder inside a crate that groups code.</div>
+<p>Build in this order. Each maps to a wiki section above.</p>
+<ol>
+<li><code>tokenizer.rs</code> - load a simple tokenizer, test encode and decode. Maps to section 2.</li>
+<li><code>model.rs</code> - load tiny weights, run one matmul. Maps to section 2.</li>
+<li><code>attention.rs</code> - single head attention with no cache. Maps to section 2.</li>
+<li><code>kvcache.rs</code> - Vec based cache, then measure MB growth. Maps to section 5.</li>
+<li><code>decode.rs</code> - greedy loop plus TTFT and TPOT timers. Maps to sections 3, 4, 6.</li>
+<li><code>batch.rs</code> - from batch 1 to naive batch 4. Maps to section 7.</li>
+<li><code>server.rs</code> - tiny HTTP streaming endpoint. Maps to section 10.</li>
+<li>Later: paging, quantization, speculation. Maps to sections 8 and 9.</li>
+</ol>
+<p class="note">Rule: do not add batching until single prompt streaming is correct. Do not add quantization until you can log cache size.</p>
+<h3>Tests that prove each step</h3>
+<p>Tokenizer round trip: decode(encode("hello world")) must equal input. Attention: single layer with no cache must match a naive math version to 1e-5. KV cache: decode with cache must equal decode without cache token for token. Metrics: log TTFT, TPOT, and cache bytes per request on every run, then use the formula in section 5 to predict if the next request fits [23][24].</p>
+
+<h2 id="glossary">12. Glossary and references</h2>
+<p>Every term from the page, ABC order. Click a term to see where it was first defined.</p>
+<dl class="glossary">
+<dt id="g-anchor">anchor link</dt><dd>A link that jumps inside the same page, like <a href="#core-loop">#core-loop</a>.</dd>
+<dt id="g-autoregression">autoregression</dt><dd>Building output one token at a time, each step seeing past tokens. See <a href="https://en.wikipedia.org/wiki/Autoregressive_model">Autoregressive model</a>.</dd>
+<dt id="g-batch">batch</dt><dd>Group of requests run together on GPU to keep it busy.</dd>
+<dt id="g-chunked-prefill">chunked prefill</dt><dd>Splitting a long prompt into small pieces so decode is not blocked. Used by vLLM and TensorRT-LLM.</dd>
+<dt id="g-compute-bound">compute bound</dt><dd>Slow because math is heavy. Prefill is compute bound.</dd>
+<dt id="g-continuous-batching">continuous batching</dt><dd>Adding new requests each decode step instead of waiting. Also called iteration-level scheduling. See <a href="https://www.anyscale.com/blog/continuous-batching-llm-inference">Orca and continuous batching</a>.</dd>
+<dt id="g-crate">crate</dt><dd>A Rust package. See <a href="https://doc.rust-lang.org/book/">Rust Book</a>.</dd>
+<dt id="g-decode">decode</dt><dd>Loop that writes one token per step using KV cache.</dd>
+<dt id="g-detokenization">detokenization</dt><dd>Turning tokens back into readable text.</dd>
+<dt id="g-disaggregation">disaggregation</dt><dd>Running prefill and decode on different machines or GPUs.</dd>
+<dt id="g-embedding">embedding</dt><dd>Token turned into a list of numbers. See <a href="https://en.wikipedia.org/wiki/Word_embedding">Word embedding</a>.</dd>
+<dt id="g-engine">inference engine</dt><dd>Program that runs scheduler, cache, and model forward passes. Examples: <a href="https://docs.vllm.ai/">vLLM</a>, <a href="https://sglang.io/">SGLang</a>, <a href="https://nvidia.github.io/TensorRT-LLM/">TensorRT-LLM</a>.</dd>
+<dt id="g-eviction">eviction</dt><dd>Deleting less useful KV entries to save memory.</dd>
+<dt id="g-flash">FlashAttention</dt><dd>Faster attention that reduces slow memory reads. See <a href="https://arxiv.org/abs/2205.14135">FlashAttention paper</a>.</dd>
+<dt id="g-glossary">glossary</dt><dd>This list itself.</dd>
+<dt id="g-hbm">HBM</dt><dd>High Bandwidth Memory, fast memory on GPU. See <a href="https://en.wikipedia.org/wiki/High_Bandwidth_Memory">HBM</a>.</dd>
+<dt id="g-inference">inference</dt><dd>Using a trained model to answer new inputs. See <a href="https://en.wikipedia.org/wiki/Machine_learning">Machine learning</a>.</dd>
+<dt id="g-kernel">kernel</dt><dd>Small fast function that runs on GPU, like matmul or attention.</dd>
+<dt id="g-key">key and value</dt><dd>Two number lists per token saved for attention reuse. Query looks up keys to weight values.</dd>
+<dt id="g-kvcache">KV cache</dt><dd>Saved keys and values from past tokens to avoid recompute.</dd>
+<dt id="g-latency">latency</dt><dd>Total wait time for a request.</dd>
+<dt id="g-memory-bound">memory bound</dt><dd>Slow because moving data is heavy. Decode is memory bound.</dd>
+<dt id="g-model">model</dt><dd>Saved program plus weights that predicts next tokens.</dd>
+<dt id="g-orchestration">orchestration</dt><dd>Coordinating many engine copies, routing, and scaling.</dd>
+<dt id="g-pagedattention">PagedAttention</dt><dd>KV cache stored in small pages with a lookup table. See <a href="https://arxiv.org/abs/2309.06180">PagedAttention paper</a>.</dd>
+<dt id="g-prefix-caching">prefix caching</dt><dd>Reusing KV cache for shared prompt prefix across requests.</dd>
+<dt id="g-prefill">prefill</dt><dd>First pass that reads the whole prompt in parallel and fills KV cache.</dd>
+<dt id="g-prompt">prompt</dt><dd>Input text from the user.</dd>
+<dt id="g-quantization">quantization</dt><dd>Using smaller number types like INT8 or INT4 to move less data. See <a href="https://en.wikipedia.org/wiki/Quantization_(signal_processing)">Quantization</a>.</dd>
+<dt id="g-query">query</dt><dd>Number list for current token that searches past keys.</dd>
+<dt id="g-speculative">speculative decoding</dt><dd>Draft small model guesses tokens, big model checks them in bulk.</dd>
+<dt id="g-static-batching">static batching</dt><dd>Old method that waits for whole batch to finish before taking new work.</dd>
+<dt id="g-term">term</dt><dd>A word with a fixed meaning in this wiki.</dd>
+<dt id="g-throughput">throughput</dt><dd>Tokens or requests served per second.</dd>
+<dt id="g-token">token</dt><dd>Small piece of text, often a word part. See <a href="https://en.wikipedia.org/wiki/Tokenization_(natural_language_processing)">Tokenization</a>.</dd>
+<dt id="g-tokenization">tokenization</dt><dd>Splitting text into tokens.</dd>
+<dt id="g-tpot">TPOT</dt><dd>Time per output token, streaming speed.</dd>
+<dt id="g-training">training</dt><dd>Teaching a model by updating weights. See <a href="https://en.wikipedia.org/wiki/Training,_validation,_and_test_data_sets">Training</a>.</dd>
+<dt id="g-transformer">transformer</dt><dd>Model type based on attention. See <a href="https://en.wikipedia.org/wiki/Transformer_(deep_learning)">Transformer</a>.</dd>
+<dt id="g-ttft">TTFT</dt><dd>Time to first token, how fast answer starts.</dd>
+<dt id="g-weights">weights</dt><dd>Learned numbers inside a model file.</dd>
+</dl>
+
+<h3>References</h3>
+<p>Every technical claim above comes from one of these. Inline [n] marks point here.</p>
+<ol>
+<li id="r-transformer">Vaswani et al., <a href="https://arxiv.org/abs/1706.03762">Attention Is All You Need</a>, 2017. Transformer and attention definition used in section 2.</li>
+<li id="r-wiki-trans">Wikipedia contributors, <a href="https://en.wikipedia.org/wiki/Transformer_(deep_learning)">Transformer (deep learning)</a>. Background for section 2.</li>
+<li id="r-modular">Modular, <a href="https://handbook.modular.com/llm-inference-basics/how-does-llm-inference-work">How does an LLM work, LLM Inference Handbook</a>. Prefill, decode, KV cache loop used in sections 3 to 5.</li>
+<li id="r-ibm">IBM, <a href="https://www.ibm.com/think/topics/llm-inference">What is LLM Inference</a>. Prefill plus decode plus KV cache summary used in sections 3 to 5.</li>
+<li id="r-ai21">AI21, <a href="https://www.ai21.com/glossary/foundational-llm/what-are-prefill-and-decode">What are Prefill and Decode</a>. Compute bound prefill vs memory bound decode used in section 4.</li>
+<li id="r-mind">MindStudio, <a href="https://www.mindstudio.ai/blog/how-llm-inference-works-prefill-decode">How LLM Inference Works: Prefill, Decode, and the KV Cache</a>. KV cache growth and prefix reuse used in sections 5 and 8.</li>
+<li id="r-vllm-arch">vLLM, <a href="https://docs.vllm.ai/en/latest/design/arch_overview/">Architecture Overview</a>. Scheduler, KVCacheManager, ModelEngine split used in section 10.</li>
+<li id="r-vllm-blog">vLLM Blog, <a href="https://vllm.ai/blog/2025-09-05-anatomy-of-vllm">Anatomy of a High-Throughput LLM Inference System</a>. Chunked prefill, prefix caching, guided decoding used in sections 7, 8, 10.</li>
+<li id="r-paged">Kwon et al., <a href="https://arxiv.org/abs/2309.06180">Efficient Memory Management for Large Language Model Serving with PagedAttention</a>. Paged blocks and page table used in section 8.</li>
+<li id="r-batch">Diamand et al., <a href="https://iop.systems/blog/llm-inference/batching">Batching, Scheduling, and Paging</a>. Continuous batching and fragmentation used in section 7.</li>
+<li id="r-flash">Dao et al., <a href="https://arxiv.org/abs/2205.14135">FlashAttention: Fast and Memory-Efficient Exact Attention with IO-Awareness</a>. IO aware attention used in section 9.</li>
+<li id="r-flashinfer">Ye et al., <a href="https://arxiv.org/abs/2501.01005">FlashInfer: Efficient and Customizable Attention Engine for LLM Inference Serving</a>. Block sparse KV and load balanced scheduling used in section 9.</li>
+<li id="r-awq">Lin et al., <a href="https://arxiv.org/abs/2306.00978">AWQ: Activation-aware Weight Quantization</a>. INT4 with quality guard used in section 9.</li>
+<li id="r-gptq">Frantar et al., <a href="https://arxiv.org/abs/2210.17323">GPTQ: Accurate Post-Training Quantization for Generative Pre-trained Transformers</a>. Layer-wise quantization used in section 9.</li>
+<li id="r-trt">NVIDIA, <a href="https://nvidia.github.io/TensorRT-LLM/architecture/overview.html">TensorRT-LLM Architecture Overview</a>. Scheduler plus KVCacheManager plus ModelEngine loop used in section 10.</li>
+<li id="r-baseten">Baseten, <a href="https://www.baseten.co/blog/how-to-optimize-llm-inference-speed-and-reduce-costs-in-production">How to optimize LLM inference speed and reduce costs in production</a>. Continuous batching, speculative decoding, quantization tradeoffs used in sections 7 and 9.</li>
+<li id="r-google">Google Cloud, <a href="https://cloud.google.com/blog/topics/developers-practitioners/five-techniques-to-reach-the-efficient-frontier-of-llm-inference">Five techniques to reach the efficient frontier of LLM inference</a>. Routing and prefix hit rate used in section 10.</li>
+<li id="r-hf">Hugging Face, <a href="https://huggingface.co/docs/transformers/">Transformers documentation</a>. Reference baseline used in section 10.</li>
+<li id="r-sample">Raschka, <a href="https://sebastianraschka.com/faq/docs/temperature-topk-topp-sampling.html">How do temperature, top-k, and top-p sampling differ</a>. Temperature rescale plus top-k fixed pool plus top-p adaptive pool used in section 2.</li>
+<li id="r-dist">Zhong et al., <a href="https://arxiv.org/abs/2401.09670">DistServe: Disaggregating Prefill and Decoding for Goodput-optimized Large Language Model Serving</a>. Prefill decode interference plus separate GPUs plus KV transfer used in sections 4 and 10.</li>
+<li id="r-dist-blog">Hao AI Lab, <a href="https://hao-ai-lab.github.io/blogs/distserve">Throughput is Not All You Need: Maximizing Goodput in LLM Serving using Prefill-Decode Disaggregation</a>. TTFT plus TPOT SLO split used in sections 4 and 6.</li>
+<li id="r-sarathi">Agrawal et al., <a href="https://arxiv.org/pdf/2403.02310">Taming Throughput-Latency Tradeoff in LLM Inference with Sarathi-Serve</a>. Chunked prefills as colocated alternative to disaggregation used in sections 4 and 7.</li>
+<li id="r-kv-grasp">Grasp Study, <a href="https://paths.grasp.study/modules/086ed4aa-dcac-42c0-b19a-19b19b8b00e4/lessons/4fc6f0cc-3039-8f2e-9fa8-5f5e3c8b00e4">Calculating KV-Cache Memory Requirements</a>. 2 x B x S x L x Hkv x dh x p formula plus GQA worked 128 KiB example used in section 5.</li>
+<li id="r-kv-fanout">Fanout, <a href="https://www.fanout.sh/blog/kv-cache-formula-llm-inference-memory">KV cache formula for LLM inference memory</a>. Same formula plus 128 KiB versus 512 KiB MHA comparison used in section 5.</li>
+<li id="r-kv-morph">MorphLLM, <a href="https://www.morphllm.com/kv-cache">KV Cache Explained: Size Formula, PagedAttention, Prefix Caching, FP8</a>. Per token formula plus hybrid model note used in section 5.</li>
+<li id="r-kv-snia">SNIA SDC25, <a href="https://www.snia.org/sites/default/files/2025-10/SNIA-SDC25-Kaynar-KV-Cache-Storage-Offloading.pdf">KV Cache Storage Offloading</a>. Per token table plus linear growth with length and users used in section 5.</li>
+<li id="r-mqa">Shazeer, Noam, <a href="https://arxiv.org/abs/1911.02150">Fast Transformer Decoding: One Write-Head is All You Need</a>. Single shared KV head idea behind MQA used in section 5.</li>
+<li id="r-gqa">Ainslie et al., <a href="https://arxiv.org/abs/2305.13245">GQA: Training Generalized Multi-Query Transformer Models from Multi-Head Checkpoints</a>. Grouped KV heads as MHA to MQA middle ground used in section 5.</li>
+<li id="r-gqa-ibm">IBM, <a href="https://www.ibm.com/think/topics/grouped-query-attention">What is grouped query attention</a>. Shared KV across query groups used in section 5.</li>
+<li id="r-gqa-practice">Raschka, <a href="https://sebastianraschka.com/faq/docs/grouped-query-attention.html">Grouped-Query Attention (GQA) in Modern LLMs</a>. 32 queries with 8 KV heads quarter cache example used in section 5.</li>
+<li id="r-chunk">vLLM, <a href="https://docs.vllm.ai/en/stable/configuration/optimization/">Optimization and Tuning: Chunked Prefill</a>. Decode first scheduling plus max_num_batched_tokens tradeoff used in section 7.</li>
+<li id="r-orca">Yu et al., <a href="https://www.usenix.org/system/files/osdi22-yu.pdf">Orca: A Distributed Serving System for Transformer-Based Generative Models</a>. Iteration-level scheduling plus selective batching plus 36.9x result used in section 7.</li>
+<li id="r-orca-sum">CenterConsulting, <a href="https://www.centerconsulting.com/ai-library/papers/orca-iteration-scheduling">Orca paper summary: iteration scheduling</a>. Plain summary of early finish and late join fix used in section 7.</li>
+<li id="r-prefix">vLLM, <a href="https://github.com/vllm-project/vllm/blob/main/docs/design/prefix_caching.md">Automatic Prefix Caching design</a>. Hash based block reuse plus parent hash chain used in section 8.</li>
+<li id="r-gptq-hf">Hugging Face, <a href="https://huggingface.co/docs/transformers/quantization/gptq">GPTQ quantization</a>. Row-wise post training plus INT4 stored and FP16 on the fly plus 4x memory save used in section 9.</li>
+<li id="r-awq-marovi">Marovi AI, <a href="https://www.marovi.ai/AWQ">AWQ overview</a>. Packed 4-bit plus FP16 scales plus on the fly dequantize plus 4x bandwidth cut used in section 9.</li>
+<li id="r-spec-levi">Leviathan et al., <a href="https://arxiv.org/pdf/2302.01318">Fast Inference from Transformers via Speculative Decoding</a>. Draft then verify in parallel with identical output guarantee used in section 9.</li>
+<li id="r-spec-small">LREC 2024, <a href="https://aclanthology.org/2024.lrec-main.725.pdf">How Speculative Can Speculative Decoding Be</a>. 3 to 5 draft tokens plus 10 to 20 times smaller draft finding used in section 9.</li>
+<li id="r-spec-vllm">vLLM, <a href="https://docs.vllm.ai/en/stable/features/speculative_decoding">Speculative Decoding</a>. Draft model plus n-gram plus EAGLE methods plus token count setting used in section 9.</li>
+</ol>
+
+<div class="footer">Homemade offline wiki for sloth-inference. Single file. Last edited Nov 2026.</div>
+
+</div>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true, theme:'neutral'});</script>
+</body>
+</html>
